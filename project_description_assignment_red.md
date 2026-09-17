@@ -137,6 +137,16 @@ loop:
         break   # model produced a final answer
 ```
 
+Inside that loop the agent follows a **red-then-green reproduction protocol** so it
+verifies its own work rather than trusting tests it never sees: before editing, the
+agent writes reproduction checks under `/tmp` from the requirements (one per bullet; a
+script or test that exits non-zero while the behavior is missing) and registers each
+with a `repro_check` tool. The harness runs every registered command on the unmodified
+checkout and on the current tree and reports RED/GREEN for both; only a check that is
+RED on the unmodified code counts. At `done`, the harness re-runs every registered
+check and refuses to finish unless at least one was RED on the unmodified code and all
+such checks are GREEN now.
+
 ### 1.3 Conversation state management
 
 The model is stateless: every request must resend the entire history. Your harness owns that history:
@@ -148,7 +158,10 @@ The model is stateless: every request must resend the entire history. Your harne
 - Write a **system prompt** that tells the model its role, the interface ("you are
   fixing an issue in the repo at ... ; make minimal changes; do not modify tests"), the
   reproduction protocol ("before editing, write reproduction checks under `/tmp` from
-  the requirements and register each with `repro_check`;
+  the requirements and register each with `repro_check`; each must be RED on the
+  unmodified code; implement until every registered check is GREEN"), and how to
+  finish (`done` is refused until at least one check that was RED on the unmodified
+  code is GREEN and no such check is still RED).
 - Context growth: tool outputs accumulate. At minimum, truncate large outputs before appending them.
 
 That's the whole minimal harness: tool definitions (what the model can ask for),
