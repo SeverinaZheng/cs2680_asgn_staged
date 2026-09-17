@@ -8,7 +8,7 @@ You will build `myagent.py`, a minimal coding-agent harness, and test it with SW
 >
 > They describe a **design choice**, not the answer.
 >  Follow their overall structure, but critically evaluate the underlying logic. Treat the interface, tools, workflow, and prompts as starting points, test them against real tasks and revise them as needed.
-> The write-up asks you what you did differently and why. An agent that follows everything might fail.
+> The write-up asks you what you did differently and why. An agent that follows everything might fail. The only requirement is that 1) Use GPT-5 mini as the model; 2) we can call run_task.sh to generate a patch that can be evaluated (with run_all.sh) and the agent logs.
 
 ## The model API
 
@@ -136,6 +136,8 @@ loop:
     else:
         break   # model produced a final answer
 ```
+
+It is important to fix failures you introduced and pre-existing failures unrelated to your change can be ignored . You can compare against the untouched code if unsure.
 
 ### 1.3 Conversation state management
 
