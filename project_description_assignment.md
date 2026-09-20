@@ -8,7 +8,7 @@ You will build `madsLoop.py`, a minimal coding-agent harness, and test it with S
 >
 > They describe a **design choice**, not the answer.
 >  Follow their overall structure, but critically evaluate the underlying logic. Treat the interface, tools, workflow, and prompts as starting points, test them against real tasks and revise them as needed.
-> The write-up asks you what you did differently and why. An agent that follows everything might fail. The only requirement is that 1) Use qwen3.6-35b as the model; 2) we can call run_task.sh to generate a patch that can be evaluated (with run_all.sh) and the agent logs; 3) all logs follow the schema required.
+> The write-up asks you what you did differently and why. An agent that follows everything might fail. The only requirement is that 1) Use qwen3.6-35b-a3b as the model; 2) we can call run_task.sh to generate a patch that can be evaluated (with run_all.sh) and the agent logs; 3) all logs follow the schema required.
 
 ## The model API
 
@@ -36,14 +36,14 @@ client = OpenAI(
     api_key=CS2680_API_KEY,
 )
 resp = client.chat.completions.create(
-    model="qwen3.6-35b",
+    model="qwen3.6-35b-a3b",
     messages=[{"role": "user", "content": "hello"}],
     tools=[...],         
 )
 ```
 
-In this assignment, qwen3.6-35b will serve as the backbone model and should be used for
-all evaluations.
+In this assignment, qwen3.6-35b-a3b will serve as the backbone model and should be
+used for all evaluations.
 
 ---
 
@@ -99,7 +99,7 @@ event type:
 Example lines:
 
 ```json
-{"timestamp": "2026-09-12T14:03:07+00:00", "event": "run_start", "model_id": "qwen3.6-35b", "workdir": "/app"}
+{"timestamp": "2026-09-12T14:03:07+00:00", "event": "run_start", "model_id": "qwen3.6-35b-a3b", "workdir": "/app"}
 {"timestamp": "2026-09-12T14:03:11+00:00", "event": "api_request", "iteration": 1, "prompt_tokens": 1834, "completion_tokens": 96, "total_tokens": 1930}
 {"timestamp": "2026-09-12T14:03:11+00:00", "event": "tool_call", "iteration": 1, "tool_name": "bash", "arguments": {"command": "grep -rn 'version_check' qutebrowser/utils/"}}
 {"timestamp": "2026-09-12T14:03:12+00:00", "event": "tool_result", "iteration": 1, "tool_name": "bash", "result": "qutebrowser/utils/qtutils.py:91: ...", "is_error": false}
