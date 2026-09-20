@@ -15,19 +15,27 @@
 #   export CS2680_API_KEY=hyi-...
 #   bash evaluation_scripts/run_task.sh <task_index>
 #
-# agent_task_input.json is read from the evaluation_scripts folder itself.
+# agent_task_input.json is read from the evaluation_scripts folder itself,
+# unless $TASKS_JSON names another task file (see mytest/).
 #
 # Produces:  model_patch_<instance_id>.diff  in the repo root
 #            madsLoop_logs/                    copied back from the container
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TASKS_JSON="$SCRIPT_DIR/agent_task_input.json"
+# Defaults to the tasks we ship; point TASKS_JSON at mytest/*.json to run
+# one of your own tasks through the same path.
+TASKS_JSON="${TASKS_JSON:-$SCRIPT_DIR/agent_task_input.json}"
 REPO_ROOT="$(cd "${MADSLOOP_REPO:-$PWD}" && pwd)"
 IDX="${1:?usage: run_task.sh <task_index>}"
 
 if [[ ! -f "$REPO_ROOT/madsLoop.py" ]]; then
   echo "error: no madsLoop.py in $REPO_ROOT — run from your repo root or set MADSLOOP_REPO" >&2
+  exit 1
+fi
+
+if [[ ! -f "$TASKS_JSON" ]]; then
+  echo "error: no task file at $TASKS_JSON" >&2
   exit 1
 fi
 
@@ -52,7 +60,15 @@ open('$REPO_ROOT/.task_$IDX.json', 'w').write(json.dumps(t))
 
 echo "== task $IDX: $INSTANCE_ID" >&2
 echo "== image: $IMAGE" >&2
-docker pull $PLATFORM_FLAG "$IMAGE" >&2
+if ! docker pull $PLATFORM_FLAG "$IMAGE" >&2; then
+  # A mytest/ image you built locally has no registry to be pulled from. That
+  # is fine, as long as the tag exists in the local Docker daemon.
+  docker image inspect "$IMAGE" >/dev/null 2>&1 || {
+    echo "error: cannot pull $IMAGE, and no such image in the local daemon" >&2
+    exit 1
+  }
+  echo "== using local image $IMAGE" >&2
+fi
 
 docker run --rm $PLATFORM_FLAG \
   --entrypoint bash \

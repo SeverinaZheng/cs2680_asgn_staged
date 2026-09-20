@@ -288,6 +288,89 @@ locally — point them at your own tasks, add debugging, adjust how the containe
 is set up. `run_all.sh` and `evaluate.sh` are the two we keep: we run our own
 copies of them unchanged. 
 
+### 2.6 Build your own tasks (`mytest/`)
+
+Beyond the tasks we give you, you **build four tasks of your own**.
+Do not take them from SWE-bench Pro, or from any other agent benchmark. The point is to see whether your harness holds up on a task nobody has tuned it for.
+Source each of the four from one of:
+
+- **an open-source repository** — a real issue, together with the commit or pull
+  request that closed it, or
+- **one of your own past projects** — a bug you actually fixed, or a feature you
+  actually added.
+
+Building a task means producing three things.
+
+**1. One paragraph of description.** This is everything your agent is told. It takes
+the place of `problem_statement`, `requirements` and `interface` in the tasks we gave
+you, and it should be a single paragraph, in the `problem_statement` field. Say what
+is wrong or missing, how it shows up, and what counts as done. Keep `requirements` and `interface` as keys
+with `""` values, so the entry has the same shape as `agent_task_input.json` and your
+agent reads it unchanged.
+
+**2. Tests that show it is fixed.** Record them in `mytest/task_test.json`, keyed by
+`instance_id`, with the same four fields as `evaluation_scripts/task_test.json`:
+`before_repo_set_cmd`, `selected_test_files_to_run`, `fail_to_pass`, `pass_to_pass`.
+`fail_to_pass` is at least one test that **fails at `base_commit` and passes once the
+task is done**. `pass_to_pass` is tests that pass in both states, so that a patch which
+breaks the repo cannot be scored as a fix. 
+
+**3. A container.** `mytest/tasks/<instance_id>/Dockerfile` builds an image with the
+repo checked out at `base_commit` and every dependency already installed, so the tests
+run without network access. Tag it, and put that tag in the task's `docker_image`
+field — that is the field `run_task.sh` runs. You do not have to push it anywhere:
+when the pull fails, `run_task.sh` falls back to the image of that name in your
+local Docker daemon.
+
+Alongside the Dockerfile, include `mytest/tasks/<instance_id>/gold.diff`: the real fix,
+the upstream commit or whatever you wrote at the time. It is there so the tests can be trusted, meaning applying it must turn every
+`fail_to_pass` test green.
+
+Split the four tasks into two files:
+
+- `mytest/solved_after_change.json` — **two** tasks your agent that solves the given tasks could **not** solve at
+  first, and **can** solve after you changed something in the agent. The change must be in the
+  submitted code. The write-up and the video explain it.
+- `mytest/unsolved.json` — **two** tasks your agent still cannot solve when you submit.
+  Their `gold.diff` must still make their tests pass.
+
+**Running them.** The workflow is the one from 2.1–2.4, with one substitution: the
+official evaluation in `evaluate.sh` only knows SWE-bench Pro instances, so it cannot
+score your images. Write a `mytest/verify.sh` to do that job instead.
+
+```bash
+IID=...                                                # one of your four instance_ids
+IMG=...                                                # that task's docker_image tag
+
+docker build -t "$IMG" "mytest/tasks/$IID/"            # 1. build the image
+TASKS_JSON=mytest/solved_after_change.json \
+  bash evaluation_scripts/run_task.sh 0                # 2. agent -> model_patch_$IID.diff
+bash mytest/verify.sh "$IID" "model_patch_$IID.diff"   # 3. apply, run tests, report
+```
+
+`verify.sh` takes an `instance_id` and a diff, starts a fresh container from that task's
+`docker_image`, resets the checkout with `before_repo_set_cmd`, applies the diff, runs
+`selected_test_files_to_run`, and prints `RESOLVED` only if **every** `fail_to_pass`
+test passes and **no** `pass_to_pass` test regresses, the same rule the official
+evaluation applies. Run it with no diff to get the `base_commit` baseline.
+
+Save its output under `mytest/results/` for each of the four tasks:
+`<instance_id>.before.log` (at `base_commit`, showing `fail_to_pass` failing) and
+`<instance_id>.after.log` (with your agent's patch for the two in
+`solved_after_change.json`; with `gold.diff` for the two in `unsolved.json`).
+
+**Minimal handin under `mytest/`:**
+
+| Path | Count | What it is |
+|---|---|---|
+| `solved_after_change.json` | 2 entries | agent-side task fields, same shape as `agent_task_input.json` |
+| `unsolved.json` | 2 entries | same |
+| `task_test.json` | 4 entries | `before_repo_set_cmd`, `selected_test_files_to_run`, `fail_to_pass`, `pass_to_pass` |
+| `tasks/<instance_id>/Dockerfile` | 4 | builds the image named in that task's `docker_image` |
+| `tasks/<instance_id>/gold.diff` | 4 | the real fix; turns `fail_to_pass` green |
+| `verify.sh` | 1 | applies a diff in the container and reports `RESOLVED` / `unresolved` |
+| `results/<instance_id>.{before,after}.log` | 8 | the runs you recorded |
+
 ### Submission
 
 The submission has three parts: the **code** (a GitHub repo), a **write-up**, and a
@@ -321,9 +404,14 @@ Required repository layout:
 │   ├── run_all.sh                          #   all tasks + bundle predictions.json — we run our own copy
 │   ├── make_predictions.py                 #   diffs -> predictions.json
 │   └── evaluate.sh                         #   official SWE-bench Pro evaluation (2.4)
-├── mytest/                                 # REQUIRED: your own SWE-bench Pro workloads (see below)
+├── mytest/                                 # REQUIRED: four tasks you build yourself (see 2.6)
 │   ├── solved_after_change.json            #   2 tasks: unsolved at first, solved after a change to your agent
-│   └── unsolved.json                       #   2 tasks: still unsolved at the end
+│   ├── unsolved.json                       #   2 tasks: still unsolved at the end
+│   ├── task_test.json                      #   the graded tests for all four
+│   ├── tasks/<instance_id>/Dockerfile      #   one per task: builds the image named in docker_image
+│   ├── tasks/<instance_id>/gold.diff       #   one per task: the real fix, never shown to your agent
+│   ├── verify.sh                           #   applies a patch in the container and runs the tests
+│   └── results/                            #   <instance_id>.before.log and .after.log per task
 └── README.md                               # optional: design notes, tool-set rationale
 ```
 
@@ -331,41 +419,28 @@ We evaluate by running `run_all.sh`, which invokes `run_task.sh` for each task.
 Your `run_task.sh` is expected to invoke your agent with `--log`, and to produce a
 patch for each task; `run_all.sh` then bundles those patches and evaluates them.
 
-
-**`mytest/`.** Beyond the tasks we give you, find four workloads of your own from
-SWE-bench Pro and record them in `mytest/`, in **the same format as
-`agent_task_input.json`** (a JSON object keyed by `instance_id`, with the same fields
-per entry: `instance_id`, `repo`, `base_commit`, `docker_image`, `problem_statement`,
-`requirements`, `interface`), so `run_task.sh` can run them unchanged:
-
-- `mytest/solved_after_change.json` — **two** workloads your agent could **not** solve
-  at first, and **can** solve after you changed something in the agent (a tool, the
-  system prompt, the loop, the reproduction protocol, …). The change must be in the
-  submitted code; the write-up and the video explain it.
-- `mytest/unsolved.json` — **two** workloads your agent still cannot solve when you
-  submit.
-
-
 #### Write-up
 
-A short document in PDF in the repo 
+A one-page (hard limit) document in PDF in the repo 
 with three sections:
 
 1. **What you did differently from the handout.** Use bullet points, one per
    difference: where your harness departs from the design described in Parts 0–1
-   (tool set, loop, reproduction protocol, conversation state, prompts) and why.
-2. **Which tasks in `agent_task_input.json` you think are unsolvable, and why.** Name
+   and why.
+2. **Which tasks in `agent_task_input.json` you think (not the agent thinks) are unsolvable, and why.** Name
    the `instance_id`s and give the evidence from your runs: what the agent tried, where
-   it got stuck, and what about the task (not just your agent) makes it unsolvable.
-3. **How you made the two `solved_after_change.json` workloads pass.** For each of the
-   two: what failed at first (from the trace), what you changed in the agent, and how
+   it got stuck, and what about the task (not your agent) makes it unsolvable. 
+3. **How you made the two `solved_after_change.json` tasks pass.** For each of the
+   two: what failed at first, what you changed in the agent, and how
    that change turns the failure into a pass.
+
+The document must be entirely your own work. No AI-generated text.
 
 #### Video
 
 Record a **3-minute** video. First walk through your code: the entry point, the tools,
 the agentic loop, and how conversation state is kept. Then show which part of the code
-you changed to turn the two `solved_after_change.json` workloads from unsolved to
+you changed to turn the two `solved_after_change.json` tasks from unsolved to
 solved, and why that change made the difference. Put the link (or the file) where the
 course page says to.
 
@@ -373,6 +448,6 @@ course page says to.
 
 | Part | Weight | What is graded |
 |---|---|---|
-| Hidden tasks | **30%** | We run your agent with `run_task.sh` on a set of hidden SWE-bench Pro tasks (same format as `agent_task_input.json`, not shared with you) and grade each patch with the official evaluation. Score is the fraction resolved. |
-| Write-up | **50%** | 10% — what you did differently from the handout. 10% — which given tasks are unsolvable and why. 30% — the `mytest/` workloads: the four tasks are in the required format and run under `run_task.sh`, the two `solved_after_change.json` tasks fail before and pass after the change you describe, and the explanation of the change matches the code. |
-| Video | **20%** | The 3-minute video: a clear walk-through of the code, and a correct account of which change turned the two `solved_after_change.json` workloads from unsolved to solved. |
+| Hidden tasks | **40%** | We run your agent with `run_task.sh` on the provided tasks and some more hidden SWE-bench Pro tasks (same format as `agent_task_input.json`) and grade each patch with the official evaluation. Score is the fraction resolved among the solvable tasks. Get a PASS for unsolvable tasks will lose points. All hidden tasks are solvable. You need to make the judgement yourself, not directly ask agents. |
+| Write-up | **40%** | 10% — what you did differently from the handout. 20% — which given tasks are unsolvable and why. 10% — the `mytest/` tasks: four tasks you built yourself, none of them from SWE-bench Pro, each with a single-paragraph `problem_statement`, a `Dockerfile` that builds, and `fail_to_pass` / `pass_to_pass` tests that `gold.diff` turns green; all four run under `run_task.sh` and score under your `verify.sh`, the two `solved_after_change.json` tasks fail before and pass after the change you describe, and the explanation of the change matches the code. |
+| Video | **20%** | The 3-minute video: a clear walk-through of the code, and a correct account of which change turned the two `solved_after_change.json` tasks from unsolved to solved. |
