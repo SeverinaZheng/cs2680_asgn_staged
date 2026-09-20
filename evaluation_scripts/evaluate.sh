@@ -4,7 +4,7 @@
 # your local Docker daemon.
 #
 # Run from your agent repo root (where patches.json was written), or set
-# MYAGENT_REPO to point at it. The Scale repo is cloned on first use into
+# MADSLOOP_REPO to point at it. The Scale repo is cloned on first use into
 # $REPO_ROOT/SWE-bench_Pro-os (override with $SWEBENCH_PRO_OS).
 #
 # Outputs: $REPO_ROOT/pro_eval/eval_results.json  ({instance_id: true/false})
@@ -14,7 +14,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_JSON="$SCRIPT_DIR/agent_task_input.json"
 TEST_JSON="$SCRIPT_DIR/task_test.json"
-REPO_ROOT="$(cd "${MYAGENT_REPO:-$PWD}" && pwd)"
+REPO_ROOT="$(cd "${MADSLOOP_REPO:-$PWD}" && pwd)"
 EVAL_REPO="${SWEBENCH_PRO_OS:-$REPO_ROOT/SWE-bench_Pro-os}"
 OUTPUT_DIR="$REPO_ROOT/pro_eval"
 

@@ -8,7 +8,7 @@ Pro's swe_bench_pro_eval.py expects a JSON array:
 agent_task_input.json (a mapping keyed by instance_id) is read from the
 evaluation_scripts folder itself; the patches are read from — and
 patches.json written to — the agent repo root: the current working
-directory, or $MYAGENT_REPO if set.
+directory, or $MADSLOOP_REPO if set.
 """
 
 import json
@@ -17,7 +17,7 @@ import pathlib
 import sys
 
 script_dir = pathlib.Path(__file__).resolve().parent
-repo_root = pathlib.Path(os.environ.get("MYAGENT_REPO", os.getcwd())).resolve()
+repo_root = pathlib.Path(os.environ.get("MADSLOOP_REPO", os.getcwd())).resolve()
 tasks = json.load(open(script_dir / "agent_task_input.json"))
 
 patches = []
@@ -30,7 +30,7 @@ for instance_id in tasks:
     patches.append({
         "instance_id": instance_id,
         "model_patch": p.read_text(),
-        "prefix": "myagent",
+        "prefix": "madsLoop",
     })
 
 out = repo_root / "patches.json"

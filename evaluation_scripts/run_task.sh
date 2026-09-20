@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run myagent on one task from agent_task_input.json inside its task container
+# Run madsLoop on one task from agent_task_input.json inside its task container
 # (assignment section 2.3). Works with both image families:
 #   - swebench/sweb.eval.* : no entrypoint, checkout at /testbed
 #   - jefzda/sweap-images  : ENTRYPOINT=/bin/bash (so `docker run IMG bash -c`
@@ -9,24 +9,30 @@
 # environment") are neutralized BEFORE your docker_env.sh runs, so a minimal
 # `pip install -q openai` docker_env.sh works everywhere.
 #
-# Run from your agent repo root (the directory containing myagent.py), or
-# set MYAGENT_REPO to point at it:
+# Run from your agent repo root (the directory containing madsLoop.py), or
+# set MADSLOOP_REPO to point at it:
 #
-#   FREEINFERENCE_API_KEY=hyi-... bash evaluation_scripts/run_task.sh <task_index>
+#   export CS2680_API_KEY=hyi-...
+#   bash evaluation_scripts/run_task.sh <task_index>
 #
 # agent_task_input.json is read from the evaluation_scripts folder itself.
 #
 # Produces:  model_patch_<instance_id>.diff  in the repo root
-#            myagent_logs/                    copied back from the container
+#            madsLoop_logs/                    copied back from the container
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TASKS_JSON="$SCRIPT_DIR/agent_task_input.json"
-REPO_ROOT="$(cd "${MYAGENT_REPO:-$PWD}" && pwd)"
+REPO_ROOT="$(cd "${MADSLOOP_REPO:-$PWD}" && pwd)"
 IDX="${1:?usage: run_task.sh <task_index>}"
 
-if [[ ! -f "$REPO_ROOT/myagent.py" ]]; then
-  echo "error: no myagent.py in $REPO_ROOT — run from your repo root or set MYAGENT_REPO" >&2
+if [[ ! -f "$REPO_ROOT/madsLoop.py" ]]; then
+  echo "error: no madsLoop.py in $REPO_ROOT — run from your repo root or set MADSLOOP_REPO" >&2
+  exit 1
+fi
+
+if [[ -z "${CS2680_API_KEY:-}" ]]; then
+  echo "error: CS2680_API_KEY is not set — export it before running (see 'The model API')" >&2
   exit 1
 fi
 
@@ -50,17 +56,18 @@ docker pull $PLATFORM_FLAG "$IMAGE" >&2
 
 docker run --rm $PLATFORM_FLAG \
   --entrypoint bash \
-  -v "$REPO_ROOT:/myagent" \
+  -v "$REPO_ROOT:/madsLoop" \
+  -e CS2680_API_KEY="${CS2680_API_KEY:-}" \
   -e FREEINFERENCE_API_KEY="${FREEINFERENCE_API_KEY:-}" \
-  -e TASK_FILE="/myagent/.task_$IDX.json" \
-  -e LOG_DEST="/myagent/myagent_logs/$INSTANCE_ID" \
+  -e TASK_FILE="/madsLoop/.task_$IDX.json" \
+  -e LOG_DEST="/madsLoop/madsLoop_logs/$INSTANCE_ID" \
   -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
   "$IMAGE" \
   -c 'set -e
-      # The container runs as root but /myagent is the host user`s repo.
+      # The container runs as root but /madsLoop is the host user`s repo.
       # Whatever this script creates there must not be left root-owned
       # (the host cannot delete it) — chown on ANY exit, success or crash.
-      trap "find /myagent ! -user \"$HOST_UID\" -exec chown \"$HOST_UID:$HOST_GID\" {} + 2>/dev/null || true" EXIT
+      trap "find /madsLoop ! -user \"$HOST_UID\" -exec chown \"$HOST_UID:$HOST_GID\" {} + 2>/dev/null || true" EXIT
       # --- container hygiene (image quirks, fixed before docker_env.sh) ---
       # Some images ship /etc/pip.conf pointing at a local offline mirror
       # (http://127.0.0.1:9876/) that is not running here -> "Connection
@@ -71,7 +78,7 @@ docker run --rm $PLATFORM_FLAG \
       export PIP_BREAK_SYSTEM_PACKAGES=1
       rm -f /etc/pip.conf 2>/dev/null || true
       # Do not litter root-owned __pycache__ into the mounted repo when
-      # importing /myagent/myagent.py and src/ modules.
+      # importing /madsLoop/madsLoop.py and src/ modules.
       export PYTHONDONTWRITEBYTECODE=1
       # the checkout is /testbed in SWE-bench images, /app in sweap-images
       WD=/testbed; [ -d /testbed/.git ] || WD=/app
@@ -94,7 +101,7 @@ docker run --rm $PLATFORM_FLAG \
       fi
       # --- pick an interpreter for the HARNESS process -------------------
       # The harness code may use modern Python syntax while the image default
-      # can be ancient (3.6/3.8). This selects who runs myagent.py ONLY — the
+      # can be ancient (3.6/3.8). This selects who runs madsLoop.py ONLY — the
       # agent`s bash tool still uses the image`s default python, so repo and
       # test commands run in the task`s real environment.
       AGENT_PY=""
@@ -126,7 +133,7 @@ docker run --rm $PLATFORM_FLAG \
       # --- your environment setup, then the agent (same invocation grading uses) ---
       # Non-fatal: in non-Python images the default pip may be absent/broken;
       # ensure_openai below covers the harness interpreter regardless.
-      bash /myagent/docker_env.sh || \
+      bash /madsLoop/docker_env.sh || \
         echo "== WARNING: docker_env.sh failed; continuing (harness deps are ensured separately)" >&2
       # docker_env.sh installs into the image default python; make sure the
       # harness interpreter has the openai package too. Ladder: existing pip
@@ -152,11 +159,11 @@ docker run --rm $PLATFORM_FLAG \
       }
       ensure_openai
       cd /tmp
-      "$AGENT_PY" /myagent/myagent.py -p "$(cat "$TASK_FILE")" --log "$WD"
-      if [ -d myagent_logs ]; then
-        mkdir -p "$LOG_DEST" && cp -r myagent_logs/. "$LOG_DEST"/ && chown -R "$HOST_UID:$HOST_GID" /myagent/myagent_logs || true
+      "$AGENT_PY" /madsLoop/madsLoop.py -p "$(cat "$TASK_FILE")" --log "$WD"
+      if [ -d madsLoop_logs ]; then
+        mkdir -p "$LOG_DEST" && cp -r madsLoop_logs/. "$LOG_DEST"/ && chown -R "$HOST_UID:$HOST_GID" /madsLoop/madsLoop_logs || true
       else
-        echo "== WARNING: agent wrote no myagent_logs/ despite --log" >&2
+        echo "== WARNING: agent wrote no madsLoop_logs/ despite --log" >&2
       fi
       # Include files the agent CREATED: intent-to-add makes untracked
       # (non-gitignored) files show up in git diff with their content.

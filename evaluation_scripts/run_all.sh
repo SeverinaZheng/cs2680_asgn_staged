@@ -1,8 +1,9 @@
 #!/bin/bash
-# Run myagent on every task in agent_task_input.json (which lives next to this
+# Run madsLoop on every task in agent_task_input.json (which lives next to this
 # script), bundle the patches into patches.json, score them with the
 # official SWE-bench Pro evaluation, and write a pass/fail summary to
-# run_all_results.md. Run from your agent repo root, or set MYAGENT_REPO.
+# run_all_results.md. Run from your agent repo root, or set MADSLOOP_REPO.
+# Export CS2680_API_KEY first — it is forwarded into every task container.
 #
 #   bash evaluation_scripts/run_all.sh [--workers N]
 #
@@ -14,19 +15,25 @@
 # produce a patch are still evaluated.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${MYAGENT_REPO:-$PWD}" && pwd)"
+REPO_ROOT="$(cd "${MADSLOOP_REPO:-$PWD}" && pwd)"
 
 WORKERS="${WORKERS:-10}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --workers) WORKERS="${2:?--workers needs a number}"; shift 2 ;;
     --workers=*) WORKERS="${1#*=}"; shift ;;
-    -h|--help) sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1 (see --help)" >&2; exit 2 ;;
   esac
 done
 [[ "$WORKERS" =~ ^[0-9]+$ && "$WORKERS" -ge 1 ]] || {
   echo "error: --workers must be a positive integer, got '$WORKERS'" >&2; exit 2; }
+
+# Checked once here so a missing key fails now, not $N times inside the logs.
+if [[ -z "${CS2680_API_KEY:-}" ]]; then
+  echo "error: CS2680_API_KEY is not set — export it before running (see 'The model API')" >&2
+  exit 1
+fi
 
 N=$(python3 -c "import json; print(len(json.load(open('$SCRIPT_DIR/agent_task_input.json'))))")
 LOG_DIR="$REPO_ROOT/run_logs"
