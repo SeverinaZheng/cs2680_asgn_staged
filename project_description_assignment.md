@@ -424,12 +424,13 @@ patch for each task; `run_all.sh` then bundles those patches and evaluates them.
 A one-page (hard limit) document in PDF in the repo 
 with three sections:
 
-1. **What you did differently from the handout.** Use bullet points, one per
-   difference: where your harness departs from the design described in Parts 0–1
-   and why.
-2. **Which tasks in `agent_task_input.json` you think (not the agent thinks) are unsolvable, and why.** Name
+
+1. **Which tasks in `agent_task_input.json` you think (not the agent thinks) are unsolvable, and why.** Name
    the `instance_id`s and give the evidence from your runs: what the agent tried, where
    it got stuck, and what about the task (not your agent) makes it unsolvable. You can change the instructions in Parts 0 and 1 in any way you think is appropriate. Failures caused by those instructions should not be considered unsolvable. Instead, identify problems with the tasks themselves that make them impossible to solve.
+2. **What you did differently from the handout.** Use bullet points, one per
+   difference: where your harness departs from the design described in Parts 0–1
+   and why.
 3. **How you made the two `solved_after_change.json` tasks pass.** For each of the
    two: what failed at first, what you changed in the agent, and how
    that change turns the failure into a pass.
@@ -449,5 +450,5 @@ course page says to.
 | Part | Weight | What is graded |
 |---|---|---|
 | Hidden tasks | **40%** | We run your agent with `run_task.sh` on the provided tasks and some more hidden SWE-bench Pro tasks (same format as `agent_task_input.json`) and grade each patch with the official evaluation. Score is the fraction resolved among the solvable tasks. Get a PASS for unsolvable tasks will lose points. All hidden tasks are solvable. You need to make the judgement yourself, not directly ask agents. |
-| Write-up | **40%** | 10% — what you did differently from the handout. 20% — which given tasks are unsolvable and why. 10% — the `mytest/` tasks: four tasks you built yourself, none of them from SWE-bench Pro, each with a single-paragraph `problem_statement`, a `Dockerfile` that builds, and `fail_to_pass` / `pass_to_pass` tests that `gold.diff` turns green; all four run under `run_task.sh` and score under your `verify.sh`, the two `solved_after_change.json` tasks fail before and pass after the change you describe, and the explanation of the change matches the code. |
+| Write-up | **40%** | 20% — which given tasks are unsolvable and why. 10% — what you did differently from the handout. 10% — the `mytest/` tasks: four tasks you built yourself, none of them from SWE-bench Pro, each with a single-paragraph `problem_statement`, a `Dockerfile` that builds, and `fail_to_pass` / `pass_to_pass` tests that `gold.diff` turns green; all four run under `run_task.sh` and score under your `verify.sh`, the two `solved_after_change.json` tasks fail before and pass after the change you describe, and the explanation of the change matches the code. |
 | Video | **20%** | The 3-minute video: a clear walk-through of the code, and a correct account of which change turned the two `solved_after_change.json` tasks from unsolved to solved. |
