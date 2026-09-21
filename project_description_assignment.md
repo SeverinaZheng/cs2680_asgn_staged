@@ -429,7 +429,7 @@ with three sections:
    and why.
 2. **Which tasks in `agent_task_input.json` you think (not the agent thinks) are unsolvable, and why.** Name
    the `instance_id`s and give the evidence from your runs: what the agent tried, where
-   it got stuck, and what about the task (not your agent) makes it unsolvable. 
+   it got stuck, and what about the task (not your agent) makes it unsolvable. You can change the instructions in Parts 0 and 1 in any way you think is appropriate. Failures caused by those instructions should not be considered unsolvable. Instead, identify problems with the tasks themselves that make them impossible to solve.
 3. **How you made the two `solved_after_change.json` tasks pass.** For each of the
    two: what failed at first, what you changed in the agent, and how
    that change turns the failure into a pass.
