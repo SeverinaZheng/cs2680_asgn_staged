@@ -55,7 +55,7 @@ print(t['instance_id'], t['docker_image'])
 python3 -c "
 import json
 t = list(json.load(open('$TASKS_JSON')).values())[$IDX]
-open('$REPO_ROOT/.task_$IDX.json', 'w').write(json.dumps(t))
+open('$REPO_ROOT/.problem_$IDX.txt', 'w').write(t['problem_statement'])
 "
 
 echo "== task $IDX: $INSTANCE_ID" >&2
@@ -74,8 +74,7 @@ docker run --rm $PLATFORM_FLAG \
   --entrypoint bash \
   -v "$REPO_ROOT:/madsLoop" \
   -e CS2680_API_KEY="${CS2680_API_KEY:-}" \
-  -e FREEINFERENCE_API_KEY="${FREEINFERENCE_API_KEY:-}" \
-  -e TASK_FILE="/madsLoop/.task_$IDX.json" \
+  -e PROBLEM_FILE="/madsLoop/.problem_$IDX.txt" \
   -e LOG_DEST="/madsLoop/madsLoop_logs/$INSTANCE_ID" \
   -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
   "$IMAGE" \
@@ -175,7 +174,7 @@ docker run --rm $PLATFORM_FLAG \
       }
       ensure_openai
       cd /tmp
-      "$AGENT_PY" /madsLoop/madsLoop.py -p "$(cat "$TASK_FILE")" --log "$WD"
+      "$AGENT_PY" /madsLoop/madsLoop.py -p "$(cat "$PROBLEM_FILE")" --log "$WD"
       if [ -d madsLoop_logs ]; then
         mkdir -p "$LOG_DEST" && cp -r madsLoop_logs/. "$LOG_DEST"/ && chown -R "$HOST_UID:$HOST_GID" /madsLoop/madsLoop_logs || true
       else
@@ -187,6 +186,6 @@ docker run --rm $PLATFORM_FLAG \
       git -C "$WD" diff' \
   > "$REPO_ROOT/model_patch_${INSTANCE_ID}.diff"
 
-rm -f "$REPO_ROOT/.task_$IDX.json"
+rm -f "$REPO_ROOT/.problem_$IDX.txt"
 echo "== patch written to model_patch_${INSTANCE_ID}.diff" >&2
 head -20 "$REPO_ROOT/model_patch_${INSTANCE_ID}.diff" >&2
